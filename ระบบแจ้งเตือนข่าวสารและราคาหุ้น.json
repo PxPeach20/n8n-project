@@ -1,0 +1,244 @@
+{
+  "name": "ระบบแจ้งเตือนข่าวสารและราคาหุ้น",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1056,
+        -80
+      ],
+      "id": "f044766d-c946-4471-adff-b654005cbb30",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.marketaux.com/v1/news/all?countries=us,th&filter_entities=true&api_token=TKPbTMLT96CsxJS9mLwN5ItO32bERQ90lrhnitEh",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -656,
+        -208
+      ],
+      "id": "cdf4a4b0-4517-486a-8b8d-6f5e6608ece3",
+      "name": "Marketaux"
+    },
+    {
+      "parameters": {
+        "url": "https://api.twelvedata.com/quote?symbol=SET.BK,BTC/USD,GOLD/USD,SPX&apikey=529f606ffabc45bdba36af4cd58bfeb6",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -656,
+        -16
+      ],
+      "id": "65df6195-af2c-4c43-8bf0-359e51aa380c",
+      "name": "Twelvedata"
+    },
+    {
+      "parameters": {
+        "url": "https://finnhub.io/api/v1/quote?symbol=SYMB&token=d3ijog1r01qmn7fkd3n0d3ijog1r01qmn7fkd3ng",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -656,
+        192
+      ],
+      "id": "537022fb-8776-4b8c-aa43-2fbbdf25664c",
+      "name": "Finhub"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -432,
+        -48
+      ],
+      "id": "7090666a-6097-473b-ab2f-28bbcf9d812d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        -32
+      ],
+      "id": "8360b03e-7293-47e7-9ec0-59bd31ea1353",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-pro",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-pro"
+        },
+        "text": "={{ $json.currentDate }}\nคุณคือผู้ช่วยในการคัดกรองข่าวเศรษฐกิจที่มีผลกระทบต่อการเปลี่ยนแปลงของอัตราหุ้น ช่วยฉันสรุปข่าวเศรษฐกิจ บอกมาtop5ของวันนั้น เอาที่โดดเด่นที่สุด บอกราคา อัตราการเพิ่มขึ้นหรือลดลง กรุณา บอกทีละตัว มีแหล่งที่มาของข่าวที่ชัดเจน วันที่เดือนปี เวลาตามเวลาตลาดเปิดปิดล่วงหน้า2ชั่วโมง ราคา อัตราการเปลี่ยนแปลง จากแหล่งที่น่าเชื่อถือ และเป็นข้อมูลใน ก่อน ปัจจุบัน1วันเสมอ เดือนตุลาคม พุธศักราช2568 ทั้งในไทยและต่างประเทศ ให้แต่ละข่าวแยกกันโดยสิ้นเชิงและ แบ่งให้แต่ละข่าวห่างกัน พอสมควร เอาเฉพาะข่าวไม่เอาคำเตือนหรือคำพูดของคุณ",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -32
+      ],
+      "id": "f72833e3-cb58-47f1-8761-75cf85f2d18b",
+      "name": "Analyze document",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "8MR4ytDruvegk6n2",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "fluke15042548@gmail.com",
+        "subject": "ระบบแจ้งเตือนข่าวสารและราคาหุ้น",
+        "message": "={{\n(() => {\n  // 1) ดึงข้อความจาก upstream (มี fallback)\n  let s = String(\n    $json.content?.parts?.[0]?.text ??\n    $json.candidates?.[0]?.content?.parts?.[0]?.text ??\n    $json.content?.text ?? $json.text ?? $json.snippet ?? ''\n  );\n\n  // 2) แปลง \"\\n\" แบบตัวหนังสือ ให้เป็นบรรทัดใหม่จริง\n  s = s.replace(/\\\\n/g, '\\n');\n\n  // 3) แปลงมาร์กดาวน์พื้นฐาน -> HTML ง่าย ๆ\n  s = s.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>'); // **หนา**\n  s = s.replace(/^\\s*[-*]\\s+/gm, '• ');                   // * รายการ --> bullet\n\n  // 4) ครอบ div และให้ขึ้นบรรทัดใหม่ตาม \\n\n  return `<div style=\"font-family:Arial,Helvetica,sans-serif;white-space:pre-line;line-height:1.6\">\n${s}\n</div>`;\n})()\n}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        192,
+        -32
+      ],
+      "id": "cc6cc254-e744-4922-a5f5-b22dbd4805b5",
+      "name": "Send a message",
+      "webhookId": "28546e2f-1f1e-4649-b800-a89743a19942",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "vSSWb3GgCGnyqgFx",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Marketaux",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Twelvedata",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Finhub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twelvedata": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Marketaux": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finhub": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Analyze document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze document": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8a2309c8-50c9-4d6f-a5f1-b1659dadaaac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ac1e29415eff548f7f50472ed2433e3aab67f7e3c552d74ab1e7608ba0f880a0"
+  },
+  "id": "GADDl9wuAlwfwSGQ",
+  "tags": []
+}
